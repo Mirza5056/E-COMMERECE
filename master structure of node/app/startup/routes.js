@@ -7,4 +7,5 @@ module.exports = function (app) {
     app.use(express.json());
     app.use('/admin', adminRoutes);
     app.use('/users', userRoutes);
+    app.use('/',adminRoutes);
 };

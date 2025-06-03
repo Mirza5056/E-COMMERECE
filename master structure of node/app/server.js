@@ -8,7 +8,7 @@ const app = express();
 routesPath(app);
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
-        console.log('Connected to Moongodb');
+        console.log('Connected to Mongoodb');
     }).catch((err) => {
         console.error(err);
     });
