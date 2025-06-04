@@ -5,26 +5,26 @@ const bcrypt = require('bcrypt');
 //  Math.floor(100000 + Math.random() * 900000).toString();
 }*/
 exports.forgetPassword = async (req, res) => {
-    // First Email Will Enter User
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    // If user not exists then we will show this message.
-    if (!user)
-        res.status(400).json({ message: 'User not find' });
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    // Like otp will expire in 10 minutes.
-    const expire = new Date(Date.now() + 10 * 60 * 1000);
-    user.otp = otp;
-    user.otpExpiry = expire;
-    const {format} = require('date-fns');
-    const date = new Date();
-    const formatDate = format(date,'yyyy-MM-dd') 
-    await user.save();
-    //console.log("Code have been running here");
-    await sendEmail(
-        email,
-        'Your Otp For Password Reset',
-        `<!DOCTYPE html>
+  // First Email Will Enter User
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  // If user not exists then we will show this message.
+  if (!user)
+    res.status(400).json({ message: 'User not find' });
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  // Like otp will expire in 10 minutes.
+  const expire = new Date(Date.now() + 10 * 60 * 1000);
+  user.otp = otp;
+  user.otpExpiry = expire;
+  const { format } = require('date-fns');
+  const date = new Date();
+  const formatDate = format(date, 'yyyy-MM-dd')
+  await user.save();
+  //console.log("Code have been running here");
+  await sendEmail(
+    email,
+    'Your Otp For Password Reset',
+    `<!DOCTYPE html>
         <head>
         <html lang="en">
     <meta charset="UTF-8" />
@@ -70,12 +70,12 @@ exports.forgetPassword = async (req, res) => {
                   height="30px"
                 />
               </td>
-              <td style="text-align: right;">
+              <!--<td style="text-align: right;">
                 <span
-                  style="font-size: 16px; line-height: 30px; color: #ffffff;"
+                  style="font-size: 10px; line-height: 30px; color: #ffffff;"
                   >${formatDate}</span
                 >
-              </td>
+              </td>-->
             </tr>
           </tbody>
         </table>
@@ -132,9 +132,9 @@ exports.forgetPassword = async (req, res) => {
               style="
                 margin: 0;
                 margin-top: 60px;
-                font-size: 40px;
+                font-size: 25px;
                 font-weight: 600;
-                letter-spacing: 25px;
+                letter-spacing: 10px;
                 color: #ba3d4f;
               "
             >
@@ -155,7 +155,7 @@ exports.forgetPassword = async (req, res) => {
         >
           Need help? Ask at
           <a
-            href="mailto:archisketch@gmail.com"
+            href="mailto:kamranakthar8@gmail.com"
             style="color: #499fb6; text-decoration: none;"
             >zayramart@gmail.com</a
           >
@@ -240,26 +240,26 @@ exports.forgetPassword = async (req, res) => {
   </body>
 </html>
 `
-    );
-    //console.log("Code successfully comes here...");
-    res.json({ message: 'OTP have been send to your email.' });
+  );
+  //console.log("Code successfully comes here...");
+  res.json({ message: 'OTP have been send to your email.' });
 };
 
 
 exports.resetPassword = async (req, res) => {
-    const { email, otp, newPassword, confirmPassword } = req.body;
-    console.log(email, otp, newPassword, confirmPassword);
-    if (newPassword !== confirmPassword)
-        return res.status(400).json({ message: "Password does not match." });
+  const { email, otp, newPassword, confirmPassword } = req.body;
+  console.log(email, otp, newPassword, confirmPassword);
+  if (newPassword !== confirmPassword)
+    return res.status(400).json({ message: "Password does not match." });
 
-    const user = await User.findOne({ email, otp });
-    if (!user || user.otpExpiry < new Date())
-        return res.status(400).json({ message: 'Invalid or Expiry OTP.' });
+  const user = await User.findOne({ email, otp });
+  if (!user || user.otpExpiry < new Date())
+    return res.status(400).json({ message: 'Invalid or Expiry OTP.' });
 
-    const hashPassword = await bcrypt.hash(confirmPassword, 10);
-    user.password = hashPassword;
-    user.otp = undefined;
-    user.otpExpiry = undefined;
-    await user.save();
-    res.json({ message: 'Password reset successfully.' });
+  const hashPassword = await bcrypt.hash(confirmPassword, 10);
+  user.password = hashPassword;
+  user.otp = undefined;
+  user.otpExpiry = undefined;
+  await user.save();
+  res.json({ message: 'Password reset successfully.' });
 };

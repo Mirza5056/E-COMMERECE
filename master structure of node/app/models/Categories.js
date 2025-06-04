@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
-const categoriesSchema= new mongoose.Schema({
-    name : String,
-    description : String,
-    createdAt : Date
-});
-module.export = mongoose.model('category',categoriesSchema);
+const categoriesSchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true },
+    description: { type: String },
+}, { timestamps: true });
+module.exports = mongoose.model('category', categoriesSchema);

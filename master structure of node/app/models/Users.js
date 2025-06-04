@@ -4,8 +4,8 @@ const userSchema = new mongoose.Schema({
     email: { type: String, unique: true, required: true },
     password: { type: String, unique: true, require: true },
     role: { type: String, enum: ['user', 'admin', 'super-admin'], default: "user" },
-    otp: { type: String, unique: true },
-    otpExpiry: { type: Date },
+    otp: { type: String, default : null },
+    otpExpiry: { type: Date, default : null },
     address: {
         street: { type: String },
         city: { type: String },

@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const { registerSchema, loginSchema, forgetSchema, resetPassword } = require('../validators/userValidator');
+const validate = require('../middleware/validate');
 const userController = require('../controllers/userController');
 const passwordController = require('../controllers/passwordReset');
-router.post('/register', userController.register);
-router.post('/login', userController.login);
-router.post('/forget-password', passwordController.forgetPassword);
+router.post('/register', validate(registerSchema), userController.register);
+router.post('/login', validate(loginSchema), userController.login);
+router.post('/forget-password', validate(forgetSchema), passwordController.forgetPassword);
 router.post('/reset-password', passwordController.resetPassword);
 module.exports = router;
