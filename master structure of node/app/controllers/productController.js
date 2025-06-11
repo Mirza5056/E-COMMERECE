@@ -3,10 +3,23 @@ const { idValidateForProduct } = require('../validators/productValidator');
 exports.createProduct = async (req, res) => {
     try {
         const { name, price, description, category, stock, avg, count } = req.body;
-        const imageUrl = req.files?.filename;
-        const product = new Product(name, price, description, category, stock, avg, count, imageUrl);
+        //if (!req.file) {
+        //return res.status(400).json({ message: "Image is required." });
+        //}
+        const imageFile = req.files;
+        const imagePath = imageFile.map(file => file.path);
+        const product = new Product({
+            name,
+            price,
+            description,
+            category,
+            stock,
+            averageRating: avg,
+            ratingCount: count,
+            image: imagePath
+        });
         await product.save();
-        res.status(200).json({ message: "Product have been saved." });
+        res.status(200).json({ message: "Product saved successfully", product });
     } catch (err) {
         return res.status(400).json({ error: err.message });
     }
@@ -24,11 +37,22 @@ exports.getProduct = async (req, res) => {
 
 
 exports.updateProduct = async (req, res) => {
-    const { error } = idValidateForDelete.validate(req.body);
+    //const { error } = idValidateForDelete.validate(req.body);
     //if (error) return res.status(400).json({ error: error.details[0].message });
-    const { id, name, price, categoryId, stock, images } = req.body;
     try {
-        const updated = await Product.findByIdAndUpdate(id, { name, price, categoryId, stock, images }, { new: true });
+        const { id,name, price, description, category, stock, avg, count } = req.body;
+        const imageFile = req.files;
+        const imagePath = imageFile.map(file => file.path);
+        const updated = await Product.findByIdAndUpdate(id, {
+            name,
+            price,
+            description,
+            category,
+            stock,
+            averageRating: avg,
+            ratingCount: count,
+            image: imagePath
+        }, { new: true });
         if (!updated) return res.status(404).json({ message: 'Product not found' });
         res.status(200).json({ message: 'Updated successfully.', updated });
     } catch (err) {
@@ -56,7 +80,7 @@ exports.getByProductId = async (req, res) => {
     const { error } = idValidateForProduct.validate(id);
     if (error) return res.status(400).json({ error: 'Invalid product ID' });
     try {
-        const product = await Category.findById(id);
+        const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: 'Product not found' });
         res.status(200).json(product);
     } catch (err) {

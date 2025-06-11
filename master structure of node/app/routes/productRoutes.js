@@ -1,14 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ dest: '../uploads' });
+const upload = require('../middleware/upload');
 const { authenticate } = require('../middleware/auth');
 const authorizeRole = require('../middleware/authorizeRule');
-const { createProduct, getProduct } = require('../controllers/productController');
+const { createProduct, getProduct, getByProductId, updateProduct } = require('../controllers/productController');
+const { validate } = require('../models/Product');
+const { productValidator } = require('../validators/productValidator');
 
-// Only Admin and Super Admin will create Product...
-router.post('/createProduct', authenticate, authorizeRole('admin', 'super-admin'), upload.single('image'), createProduct);
+// Only Admin and Super Admin will create Product... They have to provide JWT_TOKEN
+router.post('/createProduct', authenticate, authorizeRole('admin', 'super-admin'), upload.array('image', 5), createProduct);
+router.post('/updateProduct', authenticate, authorizeRole('admin', 'super-admin'), upload.array('image', 5), updateProduct);
+
+
+
 // And Users and See Products
-router.post('/getProduct', getProduct);
-
+router.get('/getProduct', getProduct);
+router.get('/getByProductId/:id', getByProductId);
 module.exports = router;

@@ -1,10 +1,12 @@
 const Joi = require('joi');
+const mongoose = require('mongoose');
 exports.productValidator = Joi.object({
     name: Joi.string().min(3).required(),
     price: Joi.number().required(),
-    categoryId: Joi.number().required(),
+    description : Joi.string().required(),
+    category: Joi.number().required(),
     stock: Joi.number().required(),
-    images: Joi.string().required()
+    image: Joi.string().required()
 });
 
 

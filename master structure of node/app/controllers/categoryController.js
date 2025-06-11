@@ -4,7 +4,16 @@ const { idValidateForDelete } = require('../validators/categoryValidator');
 exports.createCategory = async (req, res) => {
     try {
         const { name, description } = req.body;
-        const categories = new Category({ name, description });
+        console.log(name,description);
+        if (!req.file) {
+            return res.status(400).json({ message: "Image is required." });
+        }
+        const imageUrl = req.file.filename;
+        const categories = new Category({
+            name,
+            description,
+            image: imageUrl
+        });
         await categories.save();
         res.status(200).json({ message: 'Category Have been added.' });
     } catch (err) {
@@ -26,7 +35,7 @@ exports.updateCategory = async (req, res) => {
 };
 
 exports.deleteCategory = async (req, res) => {
-    const id  = req.params.id;
+    const id = req.params.id;
     //console.log(id);
     const { error } = idValidateForDelete.validate(id);
     if (error) return res.status(400).json({ error: 'Invalid Category Id' });
@@ -42,7 +51,7 @@ exports.deleteCategory = async (req, res) => {
 
 
 exports.getByCategoryId = async (req, res) => {
-    const id  = req.params.id;
+    const id = req.params.id;
     const { error } = idValidateForDelete.validate(id);
     if (error) return res.status(400).json({ error: 'Invalid category ID' });
     try {
