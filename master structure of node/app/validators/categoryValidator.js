@@ -2,7 +2,8 @@ const Joi = require('joi');
 const mongoose = require('mongoose');
 exports.categoryValidate = Joi.object({
     name: Joi.string().min(3).required(),
-    description: Joi.string().required()
+    description: Joi.string().required(),
+    image: Joi.string().required()
 });
 
 exports.idValidateForDelete = Joi.string().required().custom((value, helpers) => {

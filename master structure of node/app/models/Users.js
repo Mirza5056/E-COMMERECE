@@ -6,13 +6,6 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['user', 'admin', 'super-admin'], default: "user" },
     otp: { type: String, default : null },
     otpExpiry: { type: Date, default : null },
-    address: {
-        street: { type: String },
-        city: { type: String },
-        state: { type: String },
-        zip: { type: String },
-        country: { type: String }
-    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('user', userSchema);
