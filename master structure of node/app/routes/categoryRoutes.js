@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createCategory, getCategory, deleteCategory, updateCategory, getByCategoryId } = require('../controllers/categoryController');
+const { createCategory, getCategory, deleteCategory, updateCategory, getCatgeoryByIdAndProductDetail, getByCategoryId } = require('../controllers/categoryController');
 const { authenticate } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const authorizeRole = require('../middleware/authorizeRule');
@@ -16,4 +16,5 @@ router.delete('/deleteCategory/:id', authenticate, authorizeRole('admin', 'super
 // And Users and See Catgeory List
 router.get('/getCategory', getCategory);
 router.get('/getById/:id', getByCategoryId);
+router.get('/getByCategoryId/:id', getCatgeoryByIdAndProductDetail);
 module.exports = router;
