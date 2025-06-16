@@ -1,12 +1,12 @@
 const Order = require('../models/Order');
 const User = require('../models/Users');
 const Product = require('../models/Product');
-const {orderSchema} = require('../validators/orderAddressValidator');
+const { orderSchema } = require('../validators/orderAddressValidator');
 exports.createOrder = async (req, res) => {
     try {
-        const {error} = orderSchema.validate(req.body);
-        if(error) 
-            return res.status(400).json({message : error.details[0].message});
+        const { error } = orderSchema.validate(req.body);
+        if (error)
+            return res.status(400).json({ message: error.details[0].message });
 
         const { items, address } = req.body;
         let total = 0;

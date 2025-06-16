@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const adminRoutes = require('../routes/adminRoutes');
 const userRoutes = require('../routes/userRoutes');
 const productRoutes = require('../routes/productRoutes');
@@ -13,9 +14,12 @@ module.exports = function (app) {
         credentials: true
     }));
     app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
+    app.use(express.json());
     app.use('/admin', adminRoutes);
     app.use('/users', userRoutes);
     app.use('/product', productRoutes);
     app.use('/category', categoryRoutes);
     app.use('/orders', orderRoutes);
+    app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 };

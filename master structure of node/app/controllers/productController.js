@@ -1,13 +1,15 @@
 const Product = require('../models/Product');
-const { idValidateForProduct } = require('../validators/productValidator');
+const { idValidateForProduct, productValidator } = require('../validators/productValidator');
 exports.createProduct = async (req, res) => {
     try {
+        const { error } = productValidator.validate(req.body);
+        if (error)
+            return res.status(400).json({ message: error.details[0].message });
         const { name, price, description, category, stock, avg, count } = req.body;
-        //if (!req.file) {
-        //return res.status(400).json({ message: "Image is required." });
-        //}
-        const imageFile = req.files;
-        const imagePath = imageFile.map(file => file.path);
+        if (!req.files || req.files.length === 0)
+            return res.status(400).json({ message: "Image is required." });
+        //const imageFile = req.files;
+        const imagePath = req.files.map(file => file.path);
         const product = new Product({
             name,
             price,
@@ -19,7 +21,7 @@ exports.createProduct = async (req, res) => {
             image: imagePath
         });
         await product.save();
-        res.status(200).json({ message: "Product saved successfully", product });
+        res.status(200).json({ message: "Product saved successfully" });
     } catch (err) {
         return res.status(400).json({ error: err.message });
     }
@@ -40,7 +42,7 @@ exports.updateProduct = async (req, res) => {
     //const { error } = idValidateForDelete.validate(req.body);
     //if (error) return res.status(400).json({ error: error.details[0].message });
     try {
-        const { id,name, price, description, category, stock, avg, count } = req.body;
+        const { id, name, price, description, category, stock, avg, count } = req.body;
         const imageFile = req.files;
         const imagePath = imageFile.map(file => file.path);
         const updated = await Product.findByIdAndUpdate(id, {
