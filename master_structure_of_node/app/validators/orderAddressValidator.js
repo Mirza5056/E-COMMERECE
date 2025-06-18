@@ -2,7 +2,7 @@ const Joi = require('joi');
 const mongoose = require('mongoose');
 const addressValidator = Joi.object({
     fullName: Joi.string().min(3).max(20).required(),
-    phone: Joi.string().pattern(/^[0-9]{6}$/).max(10).required(),
+    phone: Joi.string().max(10).required(),
     street: Joi.string().required(),
     city: Joi.string().required(),
     state: Joi.string().required(),

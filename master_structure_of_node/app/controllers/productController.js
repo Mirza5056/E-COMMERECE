@@ -9,7 +9,7 @@ exports.createProduct = async (req, res) => {
         if (!req.files || req.files.length === 0)
             return res.status(400).json({ message: "Image is required." });
         //const imageFile = req.files;
-        const imagePath = req.files.map(file => file.path);
+        const imagePath = req.files.map(file => file.filename);
         const product = new Product({
             name,
             price,

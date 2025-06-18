@@ -90,13 +90,13 @@ exports.getByCategoryId = async (req, res) => {
 
 exports.getCategory = async (req, res) => {
     try {
-        //const BASE_URL = `${req.portocol}://${req.get('192.168.26.146:8080')}`;
-        const category = await Category.find();
-        // const updateCategories = category.map(cat=>({
-        //     ...cat._doc,
-        //     image : `$`
-        // }))
-        res.status(200).json({ category });
+        const host = req.protocol + '://' + req.get('host');
+        const categories = await Category.find();
+        const imageUrl = categories.map(cat=>({
+            ...cat.toObject(),
+            image : `${host}/uploads/${cat.image}`
+        }))
+        res.status(200).json({ categories : imageUrl});
     } catch (err) {
         return res.status(400).json({ error: err.message });
     }

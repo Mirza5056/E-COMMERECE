@@ -21,5 +21,5 @@ module.exports = function (app) {
     app.use('/product', productRoutes);
     app.use('/category', categoryRoutes);
     app.use('/orders', orderRoutes);
-    app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+    app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 };
