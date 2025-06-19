@@ -4,241 +4,438 @@ const sendEmail = require('../utils/emailSender');
 const Product = require('../models/Product');
 const { orderSchema } = require('../validators/orderAddressValidator');
 exports.createOrder = async (req, res) => {
-    try {
-        const host = req.protocol + '://' + req.get('host');
-        //console.log(host);
-        const { error } = orderSchema.validate(req.body);
-        if (error)
-            return res.status(400).json({ message: error.details[0].message });
+  try {
+    //const host = req.protocol + '://' + req.get('host');
+    //console.log(host);
+    const { error } = orderSchema.validate(req.body);
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
-        const { items, address } = req.body;
-        let total = 0;
-        const productItems = [];
-        for (let item of items) {
-            const product = await Product.findById(item.productId);
-            const imageUrl = `${host}/uploads/${product.image}`;
-            if (!product)
-                return res.status(404).json({ message: 'Product Not Found.' });
-            if (product.stock < item.quantity)
-                return res.status(404).json({ message: `No enough stock available ${product.name}` });
-            total += product.price * item.quantity;
-            //console.log(product.image);
-            productItems.push({
-                productName: product.name,
-                image: imageUrl,
-                price: product.price,
-                qty: item.quantity,
-                productId: item.productId
-            })
-        }
-
-        const order = new Order({
-            userId: req.user.id,
-            items,
-            totalAmount: total,
-            address
-        });
-        const userId = req.user.id;
-        const user = await User.findById(userId);
-        //const price = await Product.findById(productId);
-        const name = user.name;
-        if (!user)
-            res.status(404).json({ message: 'Invalid User and Email' });
-
-        const email = user.email;
-        for (let item of items) {
-            await Product.findByIdAndUpdate(item.productId, {
-                $inc: { stock: -item.quantity }
-            });
-        }
-        await order.save();
-        let productHtml = '';
-        for (let item of productItems) {
-            console.log(item.image);
-            productHtml +=
-                `<table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-            <tr>
-        <td class="pc-w620-spacing-0-0-12-0" valign="top" style="padding: 0px 20px 0px 0px; height: auto;"> <img
-                src="${item.image}"
-                class="pc-w620-width-150 pc-w620-height-100pc" width="100" height="100" alt=""
-                style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 100px; height: 100%; border: 0;" />
-        </td>
-    </tr>
-</table>
-</th>
-<th valign="top" style="font-weight: normal; text-align: left;">
-    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-        <tr>
-            <td>
-                <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-                    <tr>
-                        <td valign="top">
-                            <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-                                <tr>
-                                    <th valign="top"
-                                        style="font-weight: normal; text-align: left; padding: 0px 0px 8px 0px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" role="presentation"
-                                            width="100%">
-                                            <tr>
-                                                <td valign="top">
-                                                    <div class="pc-font-alt pc-w620-fontSize-16 pc-w620-lineHeight-140pc"
-                                                        style="line-height: 140%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: bold; color: #27142d;">
-                                                        <div>${item.productName}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </th>
-                                </tr>
-                                <tr>
-                                    <th valign="top"
-                                        style="font-weight: normal; text-align: left; padding: 0px 0px 4px 0px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" role="presentation"
-                                            width="100%">
-                                            <tr>
-                                                <td valign="top">
-                                                    <div class="pc-font-alt"
-                                                        style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #99959b;">
-                                                        <div><span>SKU : 79693985 </span> </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </th>
-                                </tr>
-                                <tr>
-                                    <th valign="top" style="font-weight: normal; text-align: left;">
-                                        <table border="0" cellpadding="0" cellspacing="0" role="presentation"
-                                            width="100%">
-                                            <tr>
-                                                <td valign="top">
-                                                    <div class="pc-font-alt"
-                                                        style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #99959b;">
-                                                        <div><span>Size : 4y</span> </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </th>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</th>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</td>
-<td class="pc-w620-halign-right pc-w620-valign-bottom pc-w620-padding-0-0-12-0" align="right" valign="bottom"
-    style="padding: 0px 0px 12px 0px; border-bottom: 1px solid #e5e5e5; height: auto;">
-    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-        <tr>
-            <td class="pc-w620-spacing-0-0-0-0" valign="top" style="padding: 0px 0px 12px 0px;">
-                <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-                    <tr>
-                        <td class="pc-w620-padding-0-0-0-0 pc-w620-align-right" valign="top" align="right">
-                            <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-                                <tr>
-                                    <th class="pc-w620-align-right" align="right" valign="top"
-                                        style="font-weight: normal; text-align: left;">
-                                        <table border="0" cellpadding="0" cellspacing="0" role="presentation"
-                                            class="pc-w620-align-right" width="100%">
-                                            <tr>
-                                                <td valign="top" class="pc-w620-align-right" align="right">
-                                                    <div class="pc-font-alt pc-w620-align-right pc-w620-fontSize-14px"
-                                                        style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 600; color: #53335d; text-align: right; text-align-last: right;">
-                                                        <div><span>${item.price}</span> </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </th>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</td>`;
-        }
-        await sendEmail(
-            email,
-            'Your Order Have Been Placed Successfully.',
-            `<!DOCTYPE html> <html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"> <head> <meta charset="UTF-8" /> <meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> <!--[if !mso]><!-- --> <meta http-equiv="X-UA-Compatible" content="IE=edge" /> <!--<![endif]--> <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" /> <meta name="x-apple-disable-message-reformatting" /> <link href="https://fonts.googleapis.com/css?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700" rel="stylesheet" /> <title>Funzy</title> <!-- Made with Postcards Email Builder by Designmodo --> <style> html, body { margin: 0 !important; padding: 0 !important; min-height: 100% !important; width: 100% !important; -webkit-font-smoothing: antialiased; } * { -ms-text-size-adjust: 100%; } #outlook a { padding: 0; } .ReadMsgBody, .ExternalClass { width: 100%; } .ExternalClass, .ExternalClass p, .ExternalClass td, .ExternalClass div, .ExternalClass span, .ExternalClass font { line-height: 100%; } table, td, th { mso-table-lspace: 0 !important; mso-table-rspace: 0 !important; border-collapse: collapse; } u + .body table, u + .body td, u + .body th { will-change: transform; } body, td, th, p, div, li, a, span { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; mso-line-height-rule: exactly; } img { border: 0; outline: 0; line-height: 100%; text-decoration: none; -ms-interpolation-mode: bicubic; } a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; } .body .pc-project-body { background-color: transparent !important; } @media (min-width: 621px) { .pc-lg-hide { display: none; } .pc-lg-bg-img-hide { background-image: none !important; } } </style> <style> @media (max-width: 620px) { .pc-project-body {min-width: 0px !important;} .pc-project-container {width: 100% !important;} .pc-sm-hide, .pc-w620-gridCollapsed-1 > tbody > tr > .pc-sm-hide {display: none !important;} .pc-sm-bg-img-hide {background-image: none !important;} table.pc-w620-spacing-0-0-28-0 {margin: 0px 0px 28px 0px !important;} td.pc-w620-spacing-0-0-28-0,th.pc-w620-spacing-0-0-28-0{margin: 0 !important;padding: 0px 0px 28px 0px !important;} .pc-w620-padding-0-0-0-0 {padding: 0px 0px 0px 0px !important;} .pc-w620-width-100 {width: 100px !important;} .pc-w620-height-auto {height: auto !important;} .pc-w620-fontSize-30 {font-size: 30px !important;} .pc-w620-lineHeight-40 {line-height: 40px !important;} table.pc-w620-spacing-0-0-12-0 {margin: 0px 0px 12px 0px !important;} td.pc-w620-spacing-0-0-12-0,th.pc-w620-spacing-0-0-12-0{margin: 0 !important;padding: 0px 0px 12px 0px !important;} .pc-w620-fontSize-15px {font-size: 15px !important;} .pc-w620-lineHeight-140pc {line-height: 140% !important;} table.pc-w620-spacing-0-0-24-0 {margin: 0px 0px 24px 0px !important;} td.pc-w620-spacing-0-0-24-0,th.pc-w620-spacing-0-0-24-0{margin: 0 !important;padding: 0px 0px 24px 0px !important;} .pc-w620-itemsSpacings-8-12 {padding-left: 4px !important;padding-right: 4px !important;padding-top: 6px !important;padding-bottom: 6px !important;} .pc-w620-width-hug {width: auto !important;} .pc-w620-padding-16-12-16-12 {padding: 16px 12px 16px 12px !important;} table.pc-w620-spacing-0-0-0-0 {margin: 0px 0px 0px 0px !important;} td.pc-w620-spacing-0-0-0-0,th.pc-w620-spacing-0-0-0-0{margin: 0 !important;padding: 0px 0px 0px 0px !important;} .pc-w620-width-32 {width: 32px !important;} table.pc-w620-spacing-0-0-8-0 {margin: 0px 0px 8px 0px !important;} td.pc-w620-spacing-0-0-8-0,th.pc-w620-spacing-0-0-8-0{margin: 0 !important;padding: 0px 0px 8px 0px !important;} .pc-w620-fontSize-14px {font-size: 14px !important;} .pc-w620-width-80 {width: 80px !important;} .pc-w620-width-fill {width: 100% !important;} .pc-w620-fontSize-17px {font-size: 17px !important;} .pc-w620-padding-12-20-12-20 {padding: 12px 20px 12px 20px !important;} .pc-w620-width-100pc {width: 100% !important;} .pc-w620-padding-30-28-30-28 {padding: 30px 28px 30px 28px !important;} .pc-w620-fontSize-30px {font-size: 30px !important;} .pc-w620-itemsSpacings-0-30 {padding-left: 0px !important;padding-right: 0px !important;padding-top: 15px !important;padding-bottom: 15px !important;} .pc-w620-view-vertical,.pc-w620-view-vertical > tbody,.pc-w620-view-vertical > tbody > tr,.pc-w620-view-vertical > tbody > tr > th,.pc-w620-view-vertical > tr,.pc-w620-view-vertical > tr > th {display: inline-block;width: 100% !important;} .pc-w620-width-150 {width: 150px !important;} .pc-w620-height-100pc {height: 100% !important;} .pc-w620-fontSize-16 {font-size: 16px !important;} .pc-w620-padding-0-0-12-0 {padding: 0px 0px 12px 0px !important;} .pc-w620-valign-bottom {vertical-align: bottom !important;} td.pc-w620-halign-right,th.pc-w620-halign-right {text-align: right !important;} table.pc-w620-halign-right {float: none !important;margin-right: 0 !important;margin-left: auto !important;} img.pc-w620-halign-right {margin-right: 0 !important;margin-left: auto !important;} div.pc-w620-align-right,th.pc-w620-align-right,a.pc-w620-align-right,td.pc-w620-align-right {text-align: right !important;text-align-last: right !important;} table.pc-w620-align-right{float: none !important;margin-left: auto !important;margin-right: 0 !important;} img.pc-w620-align-right{margin-right: 0 !important;margin-left: auto !important;} .pc-w620-padding-12-0-12-0 {padding: 12px 0px 12px 0px !important;} .pc-w620-valign-middle {vertical-align: middle !important;} td.pc-w620-halign-left,th.pc-w620-halign-left {text-align: left !important;} table.pc-w620-halign-left {float: none !important;margin-right: auto !important;margin-left: 0 !important;} img.pc-w620-halign-left {margin-right: auto !important;margin-left: 0 !important;} .pc-w620-padding-16-0-0-0 {padding: 16px 0px 0px 0px !important;} div.pc-w620-align-left,th.pc-w620-align-left,a.pc-w620-align-left,td.pc-w620-align-left {text-align: left !important;text-align-last: left !important;} table.pc-w620-align-left{float: none !important;margin-right: auto !important;margin-left: 0 !important;} img.pc-w620-align-left{margin-right: auto !important;margin-left: 0 !important;} table.pc-w620-spacing-0-0-4-0 {margin: 0px 0px 4px 0px !important;} td.pc-w620-spacing-0-0-4-0,th.pc-w620-spacing-0-0-4-0{margin: 0 !important;padding: 0px 0px 4px 0px !important;} .pc-w620-itemsSpacings-0-20 {padding-left: 0px !important;padding-right: 0px !important;padding-top: 10px !important;padding-bottom: 10px !important;} .pc-w620-padding-28-28-28-28 {padding: 28px 28px 28px 28px !important;} .pc-w620-fontSize-16px {font-size: 16px !important;} .pc-w620-itemsSpacings-0-24 {padding-left: 0px !important;padding-right: 0px !important;padding-top: 12px !important;padding-bottom: 12px !important;} td.pc-w620-halign-center,th.pc-w620-halign-center {text-align: center !important;} table.pc-w620-halign-center {float: none !important;margin-right: auto !important;margin-left: auto !important;} img.pc-w620-halign-center {margin-right: auto !important;margin-left: auto !important;} div.pc-w620-align-center,th.pc-w620-align-center,a.pc-w620-align-center,td.pc-w620-align-center {text-align: center !important;text-align-last: center !important;} table.pc-w620-align-center {float: none !important;margin-right: auto !important;margin-left: auto !important;} img.pc-w620-align-center {margin-right: auto !important;margin-left: auto !important;} .pc-w620-width-220 {width: 220px !important;} .pc-w620-fontSize-18px {font-size: 18px !important;} .pc-w620-padding-12-16-12-16 {padding: 12px 16px 12px 16px !important;} .pc-w620-padding-0-28-30-28 {padding: 0px 28px 30px 28px !important;} .pc-w620-itemsSpacings-0-15 {padding-left: 0px !important;padding-right: 0px !important;padding-top: 7.5px !important;padding-bottom: 7.5px !important;} table.pc-w620-spacing-0-0-20-0 {margin: 0px 0px 20px 0px !important;} td.pc-w620-spacing-0-0-20-0,th.pc-w620-spacing-0-0-20-0{margin: 0 !important;padding: 0px 0px 20px 0px !important;} .pc-w620-itemsSpacings-0-12 {padding-left: 0px !important;padding-right: 0px !important;padding-top: 6px !important;padding-bottom: 6px !important;} .pc-w620-itemsSpacings-0-28 {padding-left: 0px !important;padding-right: 0px !important;padding-top: 14px !important;padding-bottom: 14px !important;} .pc-w620-itemsSpacings-20-0 {padding-left: 10px !important;padding-right: 10px !important;padding-top: 0px !important;padding-bottom: 0px !important;} .pc-w620-itemsSpacings-4-30 {padding-left: 2px !important;padding-right: 2px !important;padding-top: 15px !important;padding-bottom: 15px !important;} .pc-w620-padding-35-35-35-35 {padding: 35px 35px 35px 35px !important;} .pc-w620-gridCollapsed-1 > tbody,.pc-w620-gridCollapsed-1 > tbody > tr,.pc-w620-gridCollapsed-1 > tr {display: inline-block !important;} .pc-w620-gridCollapsed-1.pc-width-fill > tbody,.pc-w620-gridCollapsed-1.pc-width-fill > tbody > tr,.pc-w620-gridCollapsed-1.pc-width-fill > tr {width: 100% !important;} .pc-w620-gridCollapsed-1.pc-w620-width-fill > tbody,.pc-w620-gridCollapsed-1.pc-w620-width-fill > tbody > tr,.pc-w620-gridCollapsed-1.pc-w620-width-fill > tr {width: 100% !important;} .pc-w620-gridCollapsed-1 > tbody > tr > td,.pc-w620-gridCollapsed-1 > tr > td {display: block !important;width: auto !important;padding-left: 0 !important;padding-right: 0 !important;margin-left: 0 !important;} .pc-w620-gridCollapsed-1.pc-width-fill > tbody > tr > td,.pc-w620-gridCollapsed-1.pc-width-fill > tr > td {width: 100% !important;} .pc-w620-gridCollapsed-1.pc-w620-width-fill > tbody > tr > td,.pc-w620-gridCollapsed-1.pc-w620-width-fill > tr > td {width: 100% !important;} .pc-w620-gridCollapsed-1 > tbody > .pc-grid-tr-first > .pc-grid-td-first,.pc-w620-gridCollapsed-1 > .pc-grid-tr-first > .pc-grid-td-first {padding-top: 0 !important;} .pc-w620-gridCollapsed-1 > tbody > .pc-grid-tr-last > .pc-grid-td-last,.pc-w620-gridCollapsed-1 > .pc-grid-tr-last > .pc-grid-td-last {padding-bottom: 0 !important;} .pc-w620-gridCollapsed-0 > tbody > .pc-grid-tr-first > td,.pc-w620-gridCollapsed-0 > .pc-grid-tr-first > td {padding-top: 0 !important;} .pc-w620-gridCollapsed-0 > tbody > .pc-grid-tr-last > td,.pc-w620-gridCollapsed-0 > .pc-grid-tr-last > td {padding-bottom: 0 !important;} .pc-w620-gridCollapsed-0 > tbody > tr > .pc-grid-td-first,.pc-w620-gridCollapsed-0 > tr > .pc-grid-td-first {padding-left: 0 !important;} .pc-w620-gridCollapsed-0 > tbody > tr > .pc-grid-td-last,.pc-w620-gridCollapsed-0 > tr > .pc-grid-td-last {padding-right: 0 !important;} .pc-w620-tableCollapsed-1 > tbody,.pc-w620-tableCollapsed-1 > tbody > tr,.pc-w620-tableCollapsed-1 > tr {display: block !important;} .pc-w620-tableCollapsed-1.pc-width-fill > tbody,.pc-w620-tableCollapsed-1.pc-width-fill > tbody > tr,.pc-w620-tableCollapsed-1.pc-width-fill > tr {width: 100% !important;} .pc-w620-tableCollapsed-1.pc-w620-width-fill > tbody,.pc-w620-tableCollapsed-1.pc-w620-width-fill > tbody > tr,.pc-w620-tableCollapsed-1.pc-w620-width-fill > tr {width: 100% !important;} .pc-w620-tableCollapsed-1 > tbody > tr > td,.pc-w620-tableCollapsed-1 > tr > td {display: block !important;width: auto !important;} .pc-w620-tableCollapsed-1.pc-width-fill > tbody > tr > td,.pc-w620-tableCollapsed-1.pc-width-fill > tr > td {width: 100% !important;box-sizing: border-box !important;} .pc-w620-tableCollapsed-1.pc-w620-width-fill > tbody > tr > td,.pc-w620-tableCollapsed-1.pc-w620-width-fill > tr > td {width: 100% !important;box-sizing: border-box !important;} } @media (max-width: 520px) { .pc-w520-padding-30-30-30-30 {padding: 30px 30px 30px 30px !important;} } </style> <!--[if !mso]><!-- --> <style> @font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 400; src: url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_Ncs2Zq6PBK.woff') format('woff'), url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_Ncs2Zq6PBM.woff2') format('woff2'); } @font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 500; src: url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_NcgWZq6PBK.woff') format('woff'), url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_NcgWZq6PBM.woff2') format('woff2'); } @font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 600; src: url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_NcbWFq6PBK.woff') format('woff'), url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_NcbWFq6PBM.woff2') format('woff2'); } @font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 700; src: url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_NcVGFq6PBK.woff') format('woff'), url('https://fonts.gstatic.com/s/hankengrotesk/v8/ieVq2YZDLWuGJpnzaiwFXS9tYvBRzyFLlZg_f_NcVGFq6PBM.woff2') format('woff2'); } </style> <!--<![endif]--> <!--[if mso]> <style type="text/css"> .pc-font-alt { font-family: Arial, Helvetica, sans-serif !important; } </style> <![endif]--> <!--[if gte mso 9]> <xml> <o:OfficeDocumentSettings> <o:AllowPNG/> <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings> </xml> <![endif]--> </head> <body class="body pc-font-alt" style="width: 100% !important; min-height: 100% !important; margin: 0 !important; padding: 0 !important; font-weight: normal; color: #2D3A41; mso-line-height-rule: exactly; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; font-variant-ligatures: normal; text-rendering: optimizeLegibility; -moz-osx-font-smoothing: grayscale; background-color: #f3e5ff;" bgcolor="#f3e5ff"> <table class="pc-project-body" style="table-layout: fixed; width: 100%; min-width: 600px; background-color: #f3e5ff;" bgcolor="#f3e5ff" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td align="center" valign="top" style="width:auto;"> <table class="pc-project-container" align="center" style="width: 600px; max-width: 600px;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="padding: 20px 0px 20px 0px;" align="left" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top"> <!-- BEGIN MODULE: Header --> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td valign="top" class="pc-w620-padding-30-28-30-28" style="padding: 40px 40px 40px 40px; height: unset; border-radius: 2px 2px 0px 0px; background-color: #53335d;" bgcolor="#53335d"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-28-0" align="center" valign="top" style="padding: 0px 0px 40px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/66b166144d015edbc2ce578ad3e5f07c.png" class="pc-w620-width-100 pc-w620-height-auto" width="150" height="35" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; object-fit: contain; width: 150px; height: auto; max-width: 100%; border: 0;" /> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-12-0" align="center" valign="top" style="padding: 0px 0px 16px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="margin-right: auto; margin-left: auto;"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center" style="padding: 0px 40px 0px 40px; height: auto;"> <div class="pc-font-alt pc-w620-fontSize-30 pc-w620-lineHeight-40" style="line-height: 90%; letter-spacing: -0.03em; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 72px; font-weight: bold; color: #f5c04d; text-align: center; text-align-last: center;"> <div><span>Your order is on the way!</span> </div> </div> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-24-0" align="center" valign="top" style="padding: 0px 0px 28px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="margin-right: auto; margin-left: auto;"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-15px pc-w620-lineHeight-140pc" style="line-height: 160%; letter-spacing: -0.6px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: normal; color: #ffffffcc; text-align: center; text-align-last: center;"> <div><span>Great news! Your order is all set to hit the road. We're packing it up with care and it'll be on its way to you in no time.</span> </div> </div> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" style="padding: 0px 0px 41px 0px;"> <table class="pc-w620-width-hug" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top"> <table class="pc-width-fill pc-w620-gridCollapsed-0 pc-w620-width-hug" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-w620-itemsSpacings-8-12" align="center" valign="middle" style="width: 33.33%; padding-top: 0px; padding-right: 6px; padding-bottom: 0px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-padding-16-12-16-12" align="center" valign="middle" style="padding: 20px 20px 20px 20px; height: auto; background-color: #6a4476; border-radius: 8px 8px 8px 8px;"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="line-height: 1;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-8-0" align="center" valign="top" style="padding: 0px 0px 12px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/58d6e995af1dc9bb85777d48ef698ba4.png" class="pc-w620-width-32 pc-w620-height-auto" width="60" height="59" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; object-fit: contain; width: 60px; height: auto; max-width: 100%; border-radius: 8px; border: 0;" /> </td> </tr> </table> </td> </tr> <tr> <td align="center" valign="top" style="line-height: 1;"> <table class="pc-w620-width-80" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" valign="top" style="padding: 0px 0px 10px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-14px" style="line-height: 142%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: normal; color: #ffffff; text-align: center; text-align-last: center;"> <div><span>Confirmed</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-w620-itemsSpacings-8-12" align="center" valign="middle" style="width: 33.33%; padding-top: 0px; padding-right: 6px; padding-bottom: 0px; padding-left: 6px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-padding-16-12-16-12" align="center" valign="middle" style="padding: 20px 20px 20px 20px; height: auto; background-color: #6a4476; border-radius: 8px 8px 8px 8px;"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="line-height: 1;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-8-0" align="center" valign="top" style="padding: 0px 0px 12px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/ee7587a7a91d1d13a23e640307d512fe.png" class="pc-w620-width-32 pc-w620-height-auto" width="60" height="60" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; object-fit: contain; width: 60px; height: auto; max-width: 100%; border-radius: 8px; border: 0;" /> </td> </tr> </table> </td> </tr> <tr> <td align="center" valign="top" style="line-height: 1;"> <table class="pc-w620-width-80" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" valign="top" style="padding: 0px 0px 10px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-14px" style="line-height: 142%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: normal; color: #ffffff99; text-align: center; text-align-last: center;"> <div><span>Shipping</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-grid-td-last pc-w620-itemsSpacings-8-12" align="center" valign="middle" style="width: 33.33%; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 6px;"> <table class="pc-w620-width-fill" style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-padding-16-12-16-12" align="center" valign="middle" style="padding: 20px 20px 20px 20px; height: auto; background-color: #6a4476; border-radius: 8px 8px 8px 8px;"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="line-height: 1;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-8-0" align="center" valign="top" style="padding: 0px 0px 12px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/b0d03ad328483a5b0a93bf66b6be6745.png" class="pc-w620-width-32 pc-w620-height-auto" width="60" height="60" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; object-fit: contain; width: 60px; height: auto; max-width: 100%; border-radius: 8px; border: 0;" /> </td> </tr> </table> </td> </tr> <tr> <td align="center" valign="top" style="line-height: 1;"> <table class="pc-w620-width-80" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" valign="top" style="padding: 0px 0px 10px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-14px" style="line-height: 142%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: normal; color: #ffffff99; text-align: center; text-align-last: center;"> <div><span>Delivered</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="min-width: 100%;"> <tr> <th valign="top" class="pc-w620-spacing-0-0-0-0" align="center" style="text-align: center; font-weight: normal; line-height: 100%;"> <!--[if mso]> <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="pc-w620-width-100pc" align="center" style="border-collapse: separate; border-spacing: 0; margin-right: auto; margin-left: auto;"> <tr> <td valign="middle" align="center" style="border-radius: 134px 134px 134px 134px; background-color: #f5c04e; text-align:center; color: #ffffff; padding: 16px 32px 16px 32px; mso-padding-left-alt: 0; margin-left:32px;" bgcolor="#f5c04e"> <a class="pc-font-alt" style="display: inline-block; text-decoration: none; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-weight: 600; font-size: 18px; line-height: 150%; letter-spacing: -0.2px; text-align: center; color: #27142d;" href="https://postcards.email/" target="_blank"><span style="display: block;"><span>Track your order</span></span></a> </td> </tr> </table> <![endif]--> <!--[if !mso]><!-- --> <a class="pc-w620-width-100pc pc-w620-fontSize-17px pc-w620-padding-12-20-12-20" style="display: inline-block; box-sizing: border-box; border-radius: 134px 134px 134px 134px; background-color: #f5c04e; padding: 16px 32px 16px 32px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-weight: 600; font-size: 18px; line-height: 150%; letter-spacing: -0.2px; color: #27142d; vertical-align: top; text-align: center; text-align-last: center; text-decoration: none; -webkit-text-size-adjust: none;" href="https://postcards.email/" target="_blank"><span style="display: block;"><span>Track your order</span></span></a> <!--<![endif]--> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> <!-- END MODULE: Header --> </td> </tr> <tr> <td valign="top"> <!-- BEGIN MODULE: Order Details --> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td valign="top" class="pc-w620-padding-28-28-28-28" style="padding: 40px 40px 0px 40px; height: unset; background-color: #ffffff;" bgcolor="#ffffff"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-12-0" align="center" valign="top" style="padding: 0px 0px 12px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="margin-right: auto; margin-left: auto;"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-30px pc-w620-lineHeight-140pc" style="line-height: 128%; letter-spacing: -0.01em; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 34px; font-weight: bold; color: #27142d; text-align: center; text-align-last: center;"> <div><span>Order Details</span> </div> </div> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-24-0" align="center" style="padding: 0px 0px 32px 0px;"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="width:unset;" valign="top"> <table class="pc-width-hug pc-w620-gridCollapsed-1" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-grid-td-last pc-w620-itemsSpacings-0-30" valign="middle" style="padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="center"> <tr> <td valign="top" align="center"> <div class="pc-font-alt pc-w620-fontSize-15px" style="line-height: 121%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: normal; color: #99959b; text-align: center; text-align-last: center;"> <div><span>Order Confirmation Number: </span><span style="font-weight: 600;font-style: normal;color: rgb(83, 51, 93);">#0090890</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="padding: 0px 0px 16px 0px;"> <table class="pc-w620-tableCollapsed-0" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%;"> <tbody> <tr> <td align="left" valign="top" style="padding: 0px 0px 12px 0px; border-bottom: 1px solid #e5e5e5; height: auto;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" valign="top" style="padding: 0px 0px 12px 0px;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-padding-0-0-0-0" valign="top"> <table class="pc-w620-view-vertical" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <th valign="top" style="font-weight: normal; text-align: left;"> 
-    
-                ${productHtml}
-
-
-            </td> </tr> <tr> <td class="pc-w620-halign-right pc-w620-valign-bottom pc-w620-padding-12-0-12-0" align="right" valign="bottom" style="padding: 12px 0px 12px 0px; border-bottom: 1px solid #e5e5e5; height: auto;"> </td> </tr> <tr align="right" valign="middle"> <td class="pc-w620-halign-left pc-w620-valign-middle pc-w620-padding-16-0-0-0" align="right" valign="middle" style="padding: 16px 0px 4px 0px; height: auto;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-align-left" valign="top" align="left"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <th class="pc-w620-align-left" align="left" valign="top" style="font-weight: normal; text-align: left;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="pc-w620-align-left" width="100%"> <tr> <td valign="top" class="pc-w620-align-left" align="left"> <div class="pc-font-alt pc-w620-align-left pc-w620-fontSize-14px pc-w620-lineHeight-140pc" style="line-height: 140%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #27142d; text-align: left; text-align-last: left;"> <div><span>Subtotal (excl. promo)</span> </div> </div> </td> </tr> </table> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-w620-halign-right pc-w620-valign-middle pc-w620-padding-16-0-0-0" align="right" valign="middle" style="padding: 16px 0px 4px 0px; height: auto;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-align-right" valign="top" align="right"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <th class="pc-w620-spacing-0-0-4-0 pc-w620-align-right" align="right" valign="top" style="font-weight: normal; text-align: left;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="pc-w620-align-right" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0 pc-w620-align-right" align="right"> <div class="pc-font-alt pc-w620-align-right" style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #53335d; text-align: right; text-align-last: right;"> <div><span>${item.price}</span> </div> </div> </td> </tr> </table> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr align="right" valign="middle"> <td class="pc-w620-halign-right pc-w620-valign-middle" align="right" valign="middle" style="padding: 4px 0px 4px 0px; height: auto;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-align-left" valign="top" align="left"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <th class="pc-w620-spacing-0-0-0-0 pc-w620-align-left" align="left" valign="top" style="font-weight: normal; text-align: left;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="pc-w620-align-left" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0 pc-w620-align-left" align="left"> <div class="pc-font-alt pc-w620-align-left pc-w620-fontSize-14px pc-w620-lineHeight-140pc" style="line-height: 140%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #27142d; text-align: left; text-align-last: left;"> <div><span>20% Off</span> </div> </div> </td> </tr> </table> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-w620-halign-right pc-w620-valign-middle" align="right" valign="middle" style="padding: 4px 0px 4px 0px; height: auto;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-align-right" valign="top" align="right"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <th class="pc-w620-spacing-0-0-0-0 pc-w620-align-right" align="right" valign="top" style="font-weight: normal; text-align: left;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="pc-w620-align-right" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0 pc-w620-align-right" align="right"> <div class="pc-font-alt pc-w620-align-right" style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #53335d; text-align: right; text-align-last: right;"> <div><span>-$12.00</span> </div> </div> </td> </tr> </table> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr align="right" valign="middle"> <td class="pc-w620-halign-right pc-w620-valign-middle" align="right" valign="middle" style="padding: 4px 0px 4px 0px; height: auto;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-align-left" valign="top" align="left"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <th class="pc-w620-spacing-0-0-0-0 pc-w620-align-left" align="left" valign="top" style="font-weight: normal; text-align: left;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="pc-w620-align-left" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0 pc-w620-align-left" align="left"> <div class="pc-font-alt pc-w620-align-left pc-w620-fontSize-14px pc-w620-lineHeight-140pc" style="line-height: 140%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: normal; color: #27142d; text-align: left; text-align-last: left;"> <div><span>Total Paid</span> </div> </div> </td> </tr> </table> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td align="right" valign="middle" style="padding: 4px 0px 4px 0px; height: auto;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" align="right"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <th class="pc-w620-spacing-0-0-0-0" align="right" valign="top" style="font-weight: normal; text-align: left;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="right"> <div class="pc-font-alt pc-w620-fontSize-14px" style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: normal; color: #53335d; text-align: right; text-align-last: right;"> <div><span>${total}</span> </div> </div> </td> </tr> </table> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </tbody> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-24-0" style="padding: 0px 0px 32px 0px;"> <table class="pc-width-fill pc-w620-gridCollapsed-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-grid-td-last pc-w620-itemsSpacings-0-30" align="left" valign="top" style="width: 100%; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top" style="padding: 20px 20px 20px 20px; height: auto; background-color: #fdf1d8; border-radius: 12px 12px 12px 12px;"> <table class="pc-width-fill pc-w620-gridCollapsed-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-w620-itemsSpacings-0-20" align="left" valign="top" style="width: 50%; padding-top: 0px; padding-right: 20px; padding-bottom: 0px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-4-0" valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0"> <div class="pc-font-alt" style="line-height: 156%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: bold; color: #27142d;"> <div><span>Shipping Address</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td align="left" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="left"> <tr> <td valign="top"> <div class="pc-font-alt" style="line-height: 156%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #27142d;"> <div><span>${address.street}, ${address.city}</span> </div> <div><span>Unit 57 and 61-65, Warwickshire, CV11DX, UK </span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-grid-td-last pc-w620-itemsSpacings-0-20" align="left" valign="top" style="width: 50%; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 20px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-4-0" valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0"> <div class="pc-font-alt" style="line-height: 156%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: bold; color: #27142d;"> <div><span>Billing Address</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td align="left" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="left"> <tr> <td valign="top"> <div class="pc-font-alt" style="line-height: 156%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #27142d;"> <div><span>${address.street}, ${address.pincode}, ${address.country}</span> </div> <div><span>18 Congleton Close, Coventry, CV66LH, UK </span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="line-height: 1px; font-size: 1px; border-bottom: 1px solid #e5e5e5;">&nbsp;</td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <!-- END MODULE: Order Details --> </td> </tr> <tr> <td valign="top"> <!-- BEGIN MODULE: Suggestions --> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td valign="top" class="pc-w620-padding-0-28-30-28" style="padding: 40px 40px 40px 40px; height: unset; background-color: #ffffff;" bgcolor="#ffffff"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="margin-right: auto; margin-left: auto;"> <tr> <td valign="top" align="center"> <div class="pc-font-alt pc-w620-fontSize-30px" style="line-height: 142%; letter-spacing: -0.01em; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 34px; font-weight: bold; color: #27142d; text-align: center; text-align-last: center;"> <div><span>You might also like to try</span> </div> </div> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="padding: 0px 0px 32px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="margin-right: auto; margin-left: auto;"> <tr> <td valign="top" align="center"> <div class="pc-font-alt pc-w620-fontSize-16px" style="line-height: 142%; letter-spacing: -0.4px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #99959b; text-align: center; text-align-last: center;"> <div><span>Check out other products in our store that you might like.</span> </div> </div> </td> </tr> </table> </td> </tr> </table> <table class="pc-w620-width-fill" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-24-0 pc-w620-valign-middle pc-w620-halign-center" style="padding: 0px 0px 40px 0px;"> <table class="pc-width-fill pc-w620-gridCollapsed-1 pc-w620-width-fill pc-w620-halign-center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first"> <td class="pc-grid-td-first pc-w620-itemsSpacings-0-24" align="center" valign="top" style="width: 50%; padding-top: 0px; padding-right: 12px; padding-bottom: 12px; padding-left: 0px;"> <table class="pc-w620-width-fill pc-w620-halign-center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center pc-w620-valign-middle" align="center" valign="top"> <table class="pc-w620-halign-center" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="center" valign="top" style="line-height: 1;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="center" valign="top" style="padding: 0px 0px 16px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/image-17104873995926_2-8822d769.png" class="pc-w620-width-220 pc-w620-height-auto pc-w620-align-center" width="248" height="auto" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 100%; height: auto; border: 0;" /> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="center" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center pc-w620-width-220" width="220" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" align="left"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center pc-w620-fontSize-16px" style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 500; color: #27142d; text-align: left; text-align-last: left;"> <div><span>Kid's Oasis Pierre Ollie Sneakers</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="center" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center pc-w620-width-220" width="220" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" align="left"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center pc-w620-fontSize-18px" style="line-height: 122%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: bold; color: #53335d; text-align: left; text-align-last: left;"> <div><span>£233</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-grid-td-last pc-w620-itemsSpacings-0-24" align="center" valign="top" style="width: 50%; padding-top: 0px; padding-right: 0px; padding-bottom: 12px; padding-left: 12px;"> <table class="pc-w620-width-fill pc-w620-halign-center" style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center pc-w620-valign-middle" align="left" valign="top"> <table class="pc-w620-halign-center" align="left" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="padding: 0px 0px 16px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/image-17104873996457_2-1e7f2eeb.png" class="pc-w620-width-220 pc-w620-height-auto pc-w620-align-center" width="248" height="auto" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 100%; height: auto; border: 0;" /> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center" width="220" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" align="left"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center pc-w620-fontSize-16px" style="line-height: 140%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 500; color: #27142d; text-align: left; text-align-last: left;"> <div><span>﻿Baby Boys Red Lune Long Sleeves T-Shirt﻿</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center pc-w620-width-220" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center" style="line-height: 122%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: bold; color: #53335d; text-align: left; text-align-last: left;"> <div><span>£233</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr class="pc-grid-tr-last"> <td class="pc-grid-td-first pc-w620-itemsSpacings-0-24" align="center" valign="top" style="width: 50%; padding-top: 12px; padding-right: 12px; padding-bottom: 0px; padding-left: 0px;"> <table class="pc-w620-width-fill pc-w620-halign-center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center pc-w620-valign-middle" align="left" valign="top"> <table class="pc-w620-halign-center" align="left" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="padding: 0px 0px 16px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/image-17104873997618_2-f16b1592.png" class="pc-w620-width-220 pc-w620-height-auto pc-w620-align-center" width="248" height="auto" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 100%; height: auto; border: 0;" /> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center" width="220" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" align="left"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center" style="line-height: 140%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 500; color: #27142d; text-align: left; text-align-last: left;"> <div><span>Girls Green Lorane Long Sleeves T-Shirt </span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center pc-w620-width-220" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center" style="line-height: 122%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: bold; color: #53335d; text-align: left; text-align-last: left;"> <div><span>£246</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-grid-td-last pc-w620-itemsSpacings-0-24" align="center" valign="top" style="width: 50%; padding-top: 12px; padding-right: 0px; padding-bottom: 0px; padding-left: 12px;"> <table class="pc-w620-width-fill pc-w620-halign-center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center pc-w620-valign-middle" align="left" valign="top"> <table class="pc-w620-halign-center" align="left" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="padding: 0px 0px 16px 0px; height: auto;"> <img src="https://cloudfilesdm.com/postcards/image-17104873998909_2-a589fbe5.png" class="pc-w620-width-220 pc-w620-height-auto pc-w620-align-center" width="248" height="auto" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 100%; height: auto; border: 0;" /> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center" width="220" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" align="left"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center" style="line-height: 140%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 500; color: #27142d; text-align: left; text-align-last: left;"> <div><span>Baby Boys Navy Lelia Sweatshirt</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td class="pc-w620-halign-center" align="left" valign="top" style="line-height: 1;"> <table class="pc-w620-halign-center pc-w620-width-220" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-align-center" align="left"> <div class="pc-font-alt pc-w620-align-center" style="line-height: 122%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: bold; color: #53335d; text-align: left; text-align-last: left;"> <div><span>£300</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <table class="pc-width-fill pc-w620-gridCollapsed-0" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-grid-td-last" align="center" valign="top" style="padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="min-width: 100%;"> <tr> <th valign="top" class="pc-w620-spacing-0-0-0-0" align="center" style="text-align: center; font-weight: normal; line-height: 100%;"> <!--[if mso]> <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="pc-w620-width-100pc" align="center" width="80%" style="border-collapse: separate; border-spacing: 0; margin-right: auto; margin-left: auto;"> <tr> <td valign="middle" align="center" style="width: 80%; border-radius: 50px 50px 50px 50px; background-color: #f5c04e; text-align:center; color: #ffffff; padding: 16px 24px 16px 24px; mso-padding-left-alt: 0; margin-left:24px;" bgcolor="#f5c04e"> <a class="pc-font-alt" style="display: inline-block; text-decoration: none; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-weight: 600; font-size: 18px; line-height: 150%; letter-spacing: -0.2px; text-align: center; color: #27142d;" href="https://designmodo.com/postcards" target="_blank"><span style="display: block;"><span>View All Merch</span></span></a> </td> </tr> </table> <![endif]--> <!--[if !mso]><!-- --> <a class="pc-w620-width-100pc pc-w620-fontSize-16px pc-w620-padding-12-16-12-16" style="display: inline-block; box-sizing: border-box; border-radius: 50px 50px 50px 50px; background-color: #f5c04e; padding: 16px 24px 16px 24px; width: 80%; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-weight: 600; font-size: 18px; line-height: 150%; letter-spacing: -0.2px; color: #27142d; vertical-align: top; text-align: center; text-align-last: center; text-decoration: none; -webkit-text-size-adjust: none;" href="https://designmodo.com/postcards" target="_blank"><span style="display: block;"><span>View All Merch</span></span></a> <!--<![endif]--> </th> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <!-- END MODULE: Suggestions --> </td> </tr> <tr> <td valign="top"> <!-- BEGIN MODULE: Contacts --> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td valign="top" class="pc-w620-padding-28-28-28-28" style="padding: 40px 40px 40px 40px; height: unset; background-color: #f9f3fe;" bgcolor="#f9f3fe"> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="padding: 0px 0px 8px 0px;"> <table class="pc-width-fill pc-w620-gridCollapsed-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-grid-td-last pc-w620-itemsSpacings-0-15" align="center" valign="middle" style="padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="center"> <tr> <td valign="top" align="center"> <div class="pc-font-alt" style="line-height: 142%; letter-spacing: -0.01em; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 34px; font-weight: bold; color: #27142d; text-align: center; text-align-last: center;"> <div><span>Do you have any concern ?</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-20-0" align="center" valign="top" style="padding: 0px 0px 24px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="margin-right: auto; margin-left: auto;"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-16px" style="line-height: 156%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #99959b; text-align: center; text-align-last: center;"> <div><span>Don't hesitate to contact us if you have any problems with your order.</span> </div> </div> </td> </tr> </table> </td> </tr> </table> <table class="pc-width-fill pc-w620-gridCollapsed-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-w620-itemsSpacings-0-12" align="left" valign="top" style="width: 50%; padding-top: 0px; padding-right: 8px; padding-bottom: 0px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top" style="padding: 20px 16px 20px 16px; height: auto; background-color: #f5e1ff; border-radius: 12px 12px 12px 12px;"> <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="width:unset;" valign="top"> <table class="pc-width-hug pc-w620-gridCollapsed-0" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first" valign="top" style="padding-top: 0px; padding-right: 8px; padding-bottom: 0px; padding-left: 0px;"> <img src="https://cloudfilesdm.com/postcards/f15502045f28e419edb7be12fef9b14a.png" width="50" height="50" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; object-fit: contain; width: 50px; height: 50px; border-radius: 8px; border: 0;" /> </td> <td class="pc-grid-td-last" valign="top" style="padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 8px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="padding: 0px 0px 4px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" align="left"> <div class="pc-font-alt" style="line-height: 150%; letter-spacing: -0.1px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: bold; color: #27142d; text-align: left; text-align-last: left;"> <div><span>Email Us</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td align="left" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="left"> <tr> <td valign="top" align="left"> <div class="pc-font-alt" style="line-height: 143%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #27142d; text-align: left; text-align-last: left;"> <div><span>help@funzy.com</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-grid-td-last pc-w620-itemsSpacings-0-12" align="left" valign="top" style="width: 50%; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 8px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top" style="padding: 20px 16px 20px 16px; height: auto; background-color: #f5e1ff; border-radius: 12px 12px 12px 12px;"> <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="width:unset;" valign="top"> <table class="pc-width-hug pc-w620-gridCollapsed-0" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first" valign="top" style="padding-top: 0px; padding-right: 8px; padding-bottom: 0px; padding-left: 0px;"> <img src="https://cloudfilesdm.com/postcards/b6a976c3e3c27a9f1eff53cbc278ecab.png" width="50" height="50" alt="" style="display: block; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; object-fit: contain; width: 50px; height: 50px; border-radius: 8px; border: 0;" /> </td> <td class="pc-grid-td-last" valign="top" style="padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 8px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="left" valign="top"> <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="padding: 0px 0px 4px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" align="left"> <div class="pc-font-alt" style="line-height: 150%; letter-spacing: -0.1px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 16px; font-weight: bold; color: #27142d; text-align: left; text-align-last: left;"> <div><span>Phone Us</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td align="left" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="left"> <tr> <td valign="top" align="left"> <div class="pc-font-alt" style="line-height: 143%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #27142d; text-align: left; text-align-last: left;"> <div><span>1 (999) 928-2938</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <!-- END MODULE: Contacts --> </td> </tr> <tr> <td valign="top"> <!-- BEGIN MODULE: Footer --> <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation"> <tr> <td valign="top" class="pc-w520-padding-30-30-30-30 pc-w620-padding-35-35-35-35" style="padding: 40px 40px 40px 40px; height: unset; border-radius: 0px 0px 2px 2px; background-color: #53335d;" bgcolor="#53335d"> <table class="pc-width-fill pc-w620-gridCollapsed-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first"> <td class="pc-grid-td-first pc-grid-td-last pc-w620-itemsSpacings-0-28" align="center" valign="middle" style="width: 100%; padding-top: 0px; padding-right: 0px; padding-bottom: 14px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="width:unset;" valign="top"> <table class="pc-width-hug pc-w620-gridCollapsed-0" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-w620-itemsSpacings-20-0" valign="middle" style="padding-top: 0px; padding-right: 14px; padding-bottom: 0px; padding-left: 0px;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="line-height: 1;"> <img src="https://cloudfilesdm.com/postcards/97d1e3e2fd722d0140b51806fa857340.png" class="" width="24" height="24" style="display: block; border: 0; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 24px; height: 24px;" alt="" /> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-w620-itemsSpacings-20-0" valign="middle" style="padding-top: 0px; padding-right: 14px; padding-bottom: 0px; padding-left: 14px;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="line-height: 1;"> <img src="https://cloudfilesdm.com/postcards/fe68152620e8c8adcbb7728bd667dadb.png" class="" width="24" height="24" style="display: block; border: 0; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 24px; height: 24px;" alt="" /> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-grid-td-last pc-w620-itemsSpacings-20-0" valign="middle" style="padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 14px;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="line-height: 1;"> <img src="https://cloudfilesdm.com/postcards/1653acc9769ff508be2f3ac82aef2d63.png" class="" width="24" height="24" style="display: block; border: 0; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; width: 24px; height: 24px;" alt="" /> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td class="pc-grid-td-first pc-grid-td-last pc-w620-itemsSpacings-0-28" align="center" valign="middle" style="width: 100%; padding-top: 14px; padding-right: 0px; padding-bottom: 14px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td valign="top" style="padding: 0px 0px 12px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" align="center"> <div class="pc-font-alt" style="line-height: 133%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 20px; font-weight: 600; color: #ffffff; text-align: center; text-align-last: center;"> <div><span>Thank you for supporting Funzy!</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td align="center" valign="top"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-0-0" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-15px" style="line-height: 160%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 15px; font-weight: normal; color: #ffffffbf; text-align: center; text-align-last: center;"> <div><span>We are a locally owned business that seeks to develop domestic products so they can compete with imported products. Your criticism and suggestions will be very helpful because your satisfaction is our priority.</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr class="pc-grid-tr-last"> <td class="pc-grid-td-first pc-grid-td-last pc-w620-itemsSpacings-0-28" align="center" valign="middle" style="width: 100%; padding-top: 14px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px;"> <table style="width: 100%;" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td class="pc-w620-spacing-0-0-12-0" valign="top" style="padding: 0px 0px 8px 0px; height: auto;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"> <tr> <td valign="top" class="pc-w620-padding-0-0-0-0" align="center"> <div class="pc-font-alt pc-w620-fontSize-14px" style="line-height: 160%; letter-spacing: -0.3px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: normal; color: #ffffff; text-align: center; text-align-last: center;"> <div><span style="color: rgb(255, 255, 255);">4517 Washington Ave. Manchester, KY 39495</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> <tr> <td align="center" valign="top"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center"> <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td style="width:unset;" valign="top"> <table class="pc-width-hug pc-w620-gridCollapsed-0" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr class="pc-grid-tr-first pc-grid-tr-last"> <td class="pc-grid-td-first pc-w620-itemsSpacings-4-30" valign="middle" style="padding-top: 0px; padding-right: 4px; padding-bottom: 0px; padding-left: 0px;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="center"> <tr> <td valign="top" align="center"> <div class="pc-font-alt" style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 600; color: #f5c04e; text-align: center; text-align-last: center;"> <div><span>Unsubscribe</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-w620-itemsSpacings-4-30" valign="middle" style="padding-top: 0px; padding-right: 4px; padding-bottom: 0px; padding-left: 4px;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="center"> <tr> <td valign="top" align="center"> <div class="pc-font-alt" style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 500; color: #f5c04e; text-align: center; text-align-last: center;"> <div><span>|</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> <td class="pc-grid-td-last pc-w620-itemsSpacings-4-30" valign="middle" style="padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 4px;"> <table border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="middle"> <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top"> <table border="0" cellpadding="0" cellspacing="0" role="presentation" align="center"> <tr> <td valign="top" align="center"> <div class="pc-font-alt" style="line-height: 140%; letter-spacing: -0.2px; font-family: 'Hanken Grotesk', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 600; color: #f5c04e; text-align: center; text-align-last: center;"> <div><span>Manage Reference</span> </div> </div> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> <!-- END MODULE: Footer --> </td> </tr> <tr> <td> <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"> <tr> <td align="center" valign="top" style="padding-top: 20px; padding-bottom: 20px; vertical-align: top;"> <a href="https://postcards.email/?uid=MzEwOTc4&type=footer" target="_blank" style="text-decoration: none; overflow: hidden; border-radius: 2px; display: inline-block;"> <img src="https://cloudfilesdm.com/postcards/promo-footer-dark.jpg" width="198" height="46" alt="Made with (o -) postcards" style="width: 198px; height: auto; margin: 0 auto; border: 0; outline: 0; line-height: 100%; -ms-interpolation-mode: bicubic; vertical-align: top;"> </a> <img src="https://api-postcards.designmodo.com/tracking/mail/promo?uid=MzEwOTc4" width="1" height="1" alt="" style="display:none; width: 1px; height: 1px;"> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </td> </tr> </table> </body> </html>`
-        );
-        res.status(200).json({ message: "Order Placed", orderId: order._id });
-        console.log("User Id :" + userId);
-        console.log("Email Id :" + email);
-    } catch (err) {
-        res.status(500).send("Server error");
+    const { items, address } = req.body;
+    let total = 0;
+    const productItems = [];
+    for (let item of items) {
+      const product = await Product.findById(item.productId);
+      //const imageUrl = `${host}/uploads/${product.image}`;
+      //console.log(imageUrl);
+      if (!product)
+        return res.status(404).json({ message: 'Product Not Found.' });
+      if (product.stock < item.quantity)
+        return res.status(404).json({ message: `No enough stock available ${product.name}` });
+      total += product.price * item.quantity;
+      //console.log(product.image);
+      productItems.push({
+        productName: product.name,
+        imageProduct: product.image,
+        price: product.price,
+        qty: item.quantity,
+        productId: item.productId
+      })
     }
+
+    const order = new Order({
+      userId: req.user.id,
+      items,
+      totalAmount: total,
+      address
+    });
+    //order = await Order.findById({ id });
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    //const price = await Product.findById(productId);
+    //const name = user.name;
+    if (!user)
+      res.status(404).json({ message: 'Invalid User and Email' });
+
+    const email = user.email;
+    for (let item of items) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: -item.quantity }
+      });
+    }
+    await order.save();
+    let productHtml = '';
+    for (let item of productItems) {
+      //console.log(item.image);
+      productHtml +=
+        `<div class="product">
+                    <img src="${item.imageProduct[0]}" alt="Test">
+                    <div class="product-details">
+                        <h4>${item.productName}</h4>
+                        <p>Qty: ${item.qty} × ₹${item.price}</p>
+                    </div>
+                </div>`;
+    }
+    await sendEmail(
+      email,
+      'Your Order Have Been Placed Successfully.',
+      `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Order Confirmation</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .email-container {
+      max-width: 600px;
+      background: #ffffff;
+      margin: 30px auto;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    }
+    .header {
+      text-align: center;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 20px;
+    }
+    .header h1 {
+      color: #333333;
+    }
+    .content {
+      padding: 20px 0;
+      color: #555;
+    }
+    .order-summary {
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .product {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .product img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 5px;
+      margin-right: 15px;
+    }
+    .product-details {
+      flex: 1;
+    }
+    .product-details h4 {
+      margin: 0 0 5px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    .product-details p {
+      margin: 0;
+      font-size: 14px;
+      color: #777;
+    }
+    .footer {
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      margin-top: 30px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      margin-top: 15px;
+      background-color: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+      .address-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 5px;
+    }
+    .address-box h3 {
+      margin-top: 0;
+      font-size: 16px;
+      color: #333;
+    }
+    .footer {
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <h1>Thank You for Your Order!</h1>
+    </div>
+    <div class="content">
+      <p>Hi ${user.name}</p>
+      <p>Your order <strong>#${order._id}</strong> was placed successfully on the Way!.</p>
+
+      <div class="order-summary">
+        <h3>Order Summary:</h3>
+        <p><strong>Total:</strong> ₹${total}</p>
+        <p><strong>Payment Method:</strong> UPI Payment.</p>
+
+        <hr style="margin: 15px 0;" />
+
+        <h3>Your Cart:</h3>
+
+        <!-- START PRODUCT LIST -->
+        ${productHtml}
+        <!-- END PRODUCT LIST -->
+
+          <div class="address-box">
+            <h3>Shipping Address</h3>
+            <p>${address.fullName}</p>
+            <p>${address.street}, ${address.city}, ${address.state} - ${address.pincode}</p>
+            <p>${address.country}</p>
+            <p>Phone: ${address.phone}</p>
+          </div>
+      </div>
+
+      <a class="btn" href="#">View Order</a>
+    </div>
+
+    <div class="footer">
+      <p>Need help? Contact us at kamranakthar8@gmail.com</p>
+      <p>© 2025 Zayra Mart. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`
+    );
+    res.status(200).json({ message: "Order Placed", orderId: order._id });
+    //console.log("User Id :" + userId);
+    //console.log("Email Id :" + email);
+  } catch (err) {
+    res.status(500).send("Server error");
+  }
 };
 
 
 
 exports.getDetailsOfOrderPlaced = async (req, res) => {
-    try {
-        //console.log('hello');
-        const orders = await Order.find().populate('userId', 'name email address').populate({
-            path: 'items.productId',
-            populate: {
-                path: 'category',
-                model: 'category',
-                select: 'name'
-            },
-            select: 'name price category'
-        })
-        res.json(orders);
-    } catch (err) {
-        return res.status(500).send({ message: err.message });
-    }
+  try {
+    //console.log('hello');
+    const orders = await Order.find().populate('userId', 'name email ').populate({
+      path: 'items.productId',
+      populate: {
+        path: 'category',
+        model: 'category',
+        select: 'name image status'
+      },
+      select: 'name price category image'
+    })
+    res.json(orders);
+  } catch (err) {
+    return res.status(500).send({ message: err.message });
+  }
 }
 
+
+
 exports.updateProduct = async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        const { status } = req.body;
-        const allowStatusToUpdate = ['pending', 'delivered', 'confirmed', 'shipped', 'cancelled'];
-        if (!allowStatusToUpdate.includes(status))
-            return res.status(400).json({ message: "Invalid Status" });
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    const allowStatusToUpdate = ['pending', 'delivered', 'confirmed', 'shipped', 'cancelled'];
+    if (!allowStatusToUpdate.includes(status))
+      return res.status(400).json({ message: "Invalid Status" });
 
-        const updateStatus = await Order.findByIdAndUpdate(orderId, { status }, { new: true }).
-            populate('userId', 'name email').populate({
-                path: 'items.productId',
-                populate: { path: 'category', select: 'name' }
-            });
-
-        const email = updateStatus.userId.email;
-        const name = updateStatus.userId.name;
-
-        await sendEmail(
-            email,
-            'Email Related To Update Of Your Items Which You Placed In Zayra Mart.',
-            ``
-        )
-
-        if (!updateStatus)
-            return res.status(404).json({ message: "Order Not Found." });
-
-        res.status(200).json({ message: 'Order updated', order: updateStatus });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+    const updateStatus = await Order.findByIdAndUpdate(orderId, { status }, { new: true }).
+      populate('userId', 'name email').populate({
+        path: 'items.productId',
+        populate: { path: 'category', select: 'name' },
+        select: 'name price image'
+      });
+    const email = updateStatus.userId.email;
+    const name = updateStatus.userId.name;
+    const address = updateStatus.address;
+    const productItems = [];
+    const total=0;
+    updateStatus.items.forEach(item => {
+      productItems.push({
+        productName: item.productId.name,
+        imageProduct: item.productId.image,
+        price: item.productId.price,
+        qty: item.quantity
+      })
+    })
+    let productHtml = '';
+    for (let item of productItems) {
+      //console.log(item.image);
+      productHtml +=
+        `<div class="product">
+                    <img src="${item.imageProduct[0]}" alt="Test">
+                    <div class="product-details">
+                        <h4>${item.productName}</h4>
+                        <p>Qty: ${item.qty} × ₹${item.price}</p>
+                    </div>
+                </div>`;
     }
+    await sendEmail(
+      email,
+      'Email Related To Update Of Your Items Which You Placed In Zayra Mart.',
+      `<!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Order Confirmation</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .email-container {
+      max-width: 600px;
+      background: #ffffff;
+      margin: 30px auto;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    }
+    .header {
+      text-align: center;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 20px;
+    }
+    .header h1 {
+      color: #333333;
+    }
+    .content {
+      padding: 20px 0;
+      color: #555;
+    }
+    .order-summary {
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .product {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .product img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 5px;
+      margin-right: 15px;
+    }
+    .product-details {
+      flex: 1;
+    }
+    .product-details h4 {
+      margin: 0 0 5px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    .product-details p {
+      margin: 0;
+      font-size: 14px;
+      color: #777;
+    }
+    .footer {
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      margin-top: 30px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      margin-top: 15px;
+      background-color: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+      .address-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 5px;
+    }
+    .address-box h3 {
+      margin-top: 0;
+      font-size: 16px;
+      color: #333;
+    }
+    .footer {
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <h1>Your Order Have Been ${status}</h1>
+    </div>
+    <div class="content">
+      <p>Hi ${name}</p>
+      <p>Your order <strong>#${orderId}</strong> was placed successfully on the Way!.</p>
+
+      <div class="order-summary">
+        <h3>Order Summary:</h3>
+        <p><strong>Total:</strong> ₹${total}</p>
+        <p><strong>Payment Method:</strong> UPI Payment.</p>
+
+        <hr style="margin: 15px 0;" />
+
+        <h3>Your Cart:</h3>
+
+        <!-- START PRODUCT LIST -->
+        ${productHtml}
+        <!-- END PRODUCT LIST -->
+
+          <div class="address-box">
+            <h3>Shipping Address</h3>
+            <p>${address.fullName}</p>
+            <p>${address.street}, ${address.city}, ${address.state} - ${address.pincode}</p>
+            <p>${address.country}</p>
+            <p>Phone: ${address.phone}</p>
+          </div>
+      </div>
+
+      <a class="btn" href="#">View Order</a>
+    </div>
+
+    <div class="footer">
+      <p>Need help? Contact us at kamranakthar8@gmail.com</p>
+      <p>© 2025 Zayra Mart. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`
+    )
+
+    if (!updateStatus)
+      return res.status(404).json({ message: "Order Not Found." });
+
+    res.status(200).json({ message: 'Order updated', order: updateStatus });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 }

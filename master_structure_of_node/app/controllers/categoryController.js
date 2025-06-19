@@ -10,7 +10,7 @@ exports.createCategory = async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ message: "Image is required." });
         }
-        const imageUrl = req.file.filename;
+        const imageUrl = req.file.path;
         const existingName = await Category.findOne({ name: req.body.name });
         if (existingName)
             return res.status(409).json({ success: false, message: 'Category Name already exists.' });
@@ -41,7 +41,7 @@ exports.updateCategory = async (req, res) => {
 
         const updateData = { name, description, status };
         if (req.file)
-            updateData.image = req.file.filename;
+            updateData.image = req.file.path;
         const updated = await Category.findByIdAndUpdate(id, {
             ...updateData,
             status: status !== undefined ? status : true
@@ -77,12 +77,17 @@ exports.deleteCategory = async (req, res) => {
 
 exports.getByCategoryId = async (req, res) => {
     const id = req.params.id;
+    //const host = req.protocol+"://"+req.get('host');
     const { error } = idValidateForDelete.validate(id);
     if (error) return res.status(400).json({ error: 'Invalid category ID' });
     try {
         const category = await Category.findById(id);
         if (!category) return res.status(404).json({ message: 'Category not found' });
-        res.status(200).json(category);
+        // const categoryImage = {
+        //     ...category.toObject(),
+        //     image : `${host}/uploads/${category.image}`
+        // }
+        res.status(200).json({category});
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
@@ -90,13 +95,13 @@ exports.getByCategoryId = async (req, res) => {
 
 exports.getCategory = async (req, res) => {
     try {
-        const host = req.protocol + '://' + req.get('host');
+        //const host = req.protocol + '://' + req.get('host');
         const categories = await Category.find();
-        const imageUrl = categories.map(cat=>({
-            ...cat.toObject(),
-            image : `${host}/uploads/${cat.image}`
-        }))
-        res.status(200).json({ categories : imageUrl});
+        // const imageUrl = categories.map(cat=>({
+        //     ...cat.toObject(),
+        //     image : `${host}/uploads/${cat.image}`
+        // }))
+        res.status(200).json({ categories });
     } catch (err) {
         return res.status(400).json({ error: err.message });
     }
@@ -108,11 +113,20 @@ exports.getCatgeoryByIdAndProductDetail = async (req, res) => {
     const { error } = idValidateForDelete.validate(id);
     if (error) return res.status(400).json({ error: 'Invalid category ID' });
     try {
+        //const host = req.protocol + '://' + req.get('host');
         const category = await Category.findById(id);
         if (!category)
             return res.status(404).json({ message: 'Category not found' });
 
         const product = await Product.find({ category: id });
+        // const categoryWithImage = {
+        //     ...category.toObject(),
+        //     image : `${host}/uploads/${category.image}`
+        // }
+        // const productWithImage = product.map(product=>({
+        //     ...product.toObject(),
+        //     image : `${host}/uploads/${product.image}`
+        // }))
         res.status(200).json({
             category,
             product

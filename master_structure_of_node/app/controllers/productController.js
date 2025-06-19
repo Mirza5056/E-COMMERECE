@@ -9,7 +9,7 @@ exports.createProduct = async (req, res) => {
         if (!req.files || req.files.length === 0)
             return res.status(400).json({ message: "Image is required." });
         //const imageFile = req.files;
-        const imagePath = req.files.map(file => file.filename);
+        const imagePath = req.files.map(file => file.path);
         const product = new Product({
             name,
             price,
@@ -30,8 +30,13 @@ exports.createProduct = async (req, res) => {
 
 exports.getProduct = async (req, res) => {
     try {
+        //const host = req.protocol + '://' + req.get('host');
         const products = await Product.find().populate('category');
-        res.json(products);
+        // const imageUrl = products.map(cat => ({
+        //     ...cat.toObject(),
+        //     image: `${host}/uploads/${cat.image}`
+        // }))
+        res.status(200).json({ products });
     } catch (err) {
         return res.status(400).json({ error: err.message });
     }
@@ -79,12 +84,17 @@ exports.deleteProduct = async (req, res) => {
 
 exports.getByProductId = async (req, res) => {
     const id = req.params.id;
+    //const host = req.protocol + "://"+req.get('host');
     const { error } = idValidateForProduct.validate(id);
     if (error) return res.status(400).json({ error: 'Invalid product ID' });
     try {
         const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: 'Product not found' });
-        res.status(200).json(product);
+        // const productImage = {
+        //     ...product.toObject(),
+        //     image : `${host}/uploads/${product.image}`
+        // }
+        res.status(200).json({product});
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
